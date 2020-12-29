@@ -19,10 +19,12 @@ import scalismo.common.{BoxDomain, Field, RealSpace}
 import scalismo.geometry.Point.implicits._
 import scalismo.geometry.{_1D, _3D, EuclideanVector, Point}
 import scalismo.numerics.UniformSampler
-import scalismo.registration.Transformation
 import scalismo.statisticalmodel.{GaussianProcess, LowRankGaussianProcess}
 import scalismo.utils.Random
-import scalismo.{ScalismoTestSuite}
+import scalismo.ScalismoTestSuite
+import scalismo.transformations.Transformation
+
+import scala.collection.parallel.immutable.ParVector
 
 class KernelTests extends ScalismoTestSuite {
 
@@ -73,10 +75,10 @@ class KernelTests extends ScalismoTestSuite {
 
       val sampleTransformations = for (i <- (0 until 5000)) yield {
         // TODO: gp.sample() should (arguably) accept seed.
-        val sample: (Point[_3D] => EuclideanVector[_3D]) = gp.sample()
+        val theSample: (Point[_3D] => EuclideanVector[_3D]) = gp.sample()
         new Transformation[_3D] {
           override val domain = RealSpace[_3D]
-          override val f = (x: Point[_3D]) => x + sample(x)
+          override val f = (x: Point[_3D]) => x + theSample(x)
         }
       }
 
@@ -87,14 +89,14 @@ class KernelTests extends ScalismoTestSuite {
 
       // since mu always returns the same vector, it's enough to calculate it once
       val mux = mu(Point(0, 0, 0))
-      for (x <- pts.par) {
+      for (x <- new ParVector(pts.toVector)) {
         val mu2 = sampleCovKernel.mu(x)
         for (d <- 0 until 3) {
           mu2(d) should be(mux(d) +- 0.2)
         }
       }
 
-      for (x <- pts.par; y <- pts) {
+      for (x <- new ParVector(pts.toVector); y <- pts) {
         val gpxy = gp.cov(x, y)
         val sampleCovxy = sampleCovKernel(x, y)
         for (d1 <- 0 until 3; d2 <- 0 until 3) {

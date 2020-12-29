@@ -5,11 +5,15 @@ import java.net.URLDecoder
 
 import breeze.linalg.DenseVector
 import scalismo.ScalismoTestSuite
-import scalismo.geometry.{_3D, Point}
-import scalismo.io.{ImageIO, MeshIO, StatismoIO}
+import scalismo.common.DiscreteField
+import scalismo.common.interpolation.NearestNeighborInterpolator
+import scalismo.geometry.{_3D, EuclideanVector, Point}
+import scalismo.io.{ImageIO, MeshIO, StatismoIO, StatisticalModelIO}
 import scalismo.mesh.{MeshMetrics, TriangleMesh}
 import scalismo.numerics.{Sampler, UniformMeshSampler3D}
 import scalismo.registration.LandmarkRegistration
+import scalismo.transformations.Transformation
+import scalismo.statisticalmodel.asm.ActiveShapeModel.TrainingData
 import scalismo.statisticalmodel.asm._
 import scalismo.statisticalmodel.dataset.DataCollection
 import scalismo.utils.Random
@@ -30,7 +34,7 @@ class ActiveShapeModelTests extends ScalismoTestSuite {
         FittingConfiguration(featureDistanceThreshold = 2.0, pointDistanceThreshold = 3.0, modelCoefficientBounds = 3.0)
 
       val path: String = URLDecoder.decode(getClass.getResource(s"/asmData/model.h5").getPath, "UTF-8")
-      val shapeModel = StatismoIO.readStatismoMeshModel(new File(path)).get
+      val shapeModel = StatisticalModelIO.readStatisticalMeshModel(new File(path)).get
       val nbFiles = 7
       // use iterators so files are only loaded when required (and memory can be reclaimed after use)
       val meshes = (0 until nbFiles).toIterator map { i =>
@@ -47,8 +51,12 @@ class ActiveShapeModelTests extends ScalismoTestSuite {
       val trainMeshes = meshes
       val trainImages = images
 
-      val dc = DataCollection.fromMeshSequence(shapeModel.referenceMesh, trainMeshes.toIndexedSeq)._1.get
-      val trainingData = trainImages zip dc.dataItems.toIterator.map(_.transformation)
+      val dc = DataCollection.fromTriangleMesh3DSequence(shapeModel.referenceMesh, trainMeshes.toIndexedSeq)
+      def itemsToTransform(item: DiscreteField[_3D, TriangleMesh, EuclideanVector[_3D]]): Transformation[_3D] = {
+        val field = item.interpolate(NearestNeighborInterpolator())
+        Transformation((p: Point[_3D]) => p + field(p))
+      }
+      val trainingData: TrainingData = trainImages zip dc.dataItems.map(itemsToTransform).iterator
 
       val asm =
         ActiveShapeModel.trainModel(shapeModel, trainingData, imagePreprocessor, featureExtractor, samplerPerMesh)

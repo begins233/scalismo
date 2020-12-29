@@ -18,12 +18,16 @@ package scalismo.registration
 
 import breeze.linalg.DenseVector
 import breeze.numerics._
-import scalismo.common.Scalar
+import scalismo.common.{DifferentiableField, Field, Scalar}
 import scalismo.geometry._
-import scalismo.image.{DifferentiableScalarImage, DiscreteImageDomain, ScalarImage}
+import scalismo.image.{DiscreteImageDomain, StructuredPoints}
 import scalismo.numerics._
 import scalismo.registration.RegistrationMetric.ValueAndDerivative
+import scalismo.transformations.ParametricTransformation.JacobianField
+import scalismo.transformations.TransformationSpace
 import scalismo.utils.{Memoize, Random}
+
+import scala.collection.parallel.immutable.ParVector
 
 /**
  * Implementation of the Mutual Information Metric, described in the following paper:
@@ -40,9 +44,9 @@ import scalismo.utils.{Memoize, Random}
  *                recommended choice is a random sampler (which combined with a gradient descent algorithm leads to a stochastic gradient descent.
  * @param numberOfBins The number of bins used for the intensity histograms (which approximates the joint distribution)
  */
-case class MutualInformationMetric[D: NDSpace, A: Scalar](fixedImage: ScalarImage[D, A],
+case class MutualInformationMetric[D: NDSpace, A: Scalar](fixedImage: Field[D, A],
                                                           fixedImageDomain: DiscreteImageDomain[D],
-                                                          movingImage: DifferentiableScalarImage[D, A],
+                                                          movingImage: DifferentiableField[D, A],
                                                           transformationSpace: TransformationSpace[D],
                                                           sampler: Sampler[D],
                                                           numberOfBins: Int = 30)(implicit rng: Random)
@@ -52,7 +56,7 @@ case class MutualInformationMetric[D: NDSpace, A: Scalar](fixedImage: ScalarImag
   type JointHistogramDerivative = (Int, Int) => DenseVector[Double]
   type MarginalHistogram = Int => Double
 
-  private val scalar = Scalar[A]
+  val scalar = Scalar[A]
 
   override val ndSpace: NDSpace[D] = implicitly[NDSpace[D]]
 
@@ -65,7 +69,7 @@ case class MutualInformationMetric[D: NDSpace, A: Scalar](fixedImage: ScalarImag
   private val fixedImagePoints =
     UniformSampler(fixedImageDomain.boundingBox, numberOfPoints = 100000).sample().map(_._1)
 
-  private def minMaxValue(img: ScalarImage[D, A]): (Double, Double) = {
+  private def minMaxValue(img: Field[D, A]): (Double, Double) = {
 
     val values = for (pt <- fixedImagePoints if img.isDefinedAt(pt)) yield scalar.toDouble(img(pt))
     (values.min, values.max)
@@ -79,14 +83,15 @@ case class MutualInformationMetric[D: NDSpace, A: Scalar](fixedImage: ScalarImag
   private val binDeltaMovingImage = maxValueMovingImage + 1 - minValueMovingImage
   private val binSizeMovingImage = binDeltaMovingImage / numberOfBins
 
-  private val numberOfParameters: Int = transformationSpace.parametersDimensionality
+  private val numberOfParameters: Int = transformationSpace.numberOfParameters
 
   def _computeJointHistogram(parameters: DenseVector[Double], points: Seq[Point[D]]): JointHistogram = {
 
-    val transform = Memoize(transformationSpace.transformForParameters(parameters), cacheSizeHint = points.size + 100)
+    val transform =
+      Memoize(transformationSpace.transformationForParameters(parameters), cacheSizeHint = points.size + 100)
 
     val jointHistogramValues =
-      for (l <- (0 until numberOfBins).par;
+      for (l <- ParVector.range(0, numberOfBins);
            k <- (0 until numberOfBins)) yield {
 
         val probValues = for (point <- points) yield {
@@ -162,14 +167,16 @@ case class MutualInformationMetric[D: NDSpace, A: Scalar](fixedImage: ScalarImag
   private def _computeJointHistogramDerivative(params: DenseVector[Double],
                                                points: Seq[Point[D]]): JointHistogramDerivative = {
 
-    val transform = Memoize(transformationSpace.transformForParameters(params), points.size + 100)
+    val transform = transformationSpace.transformationForParameters(params)
+    val transformMemoized = Memoize(transform, points.size + 100)
+
     val zeroVec = DenseVector.zeros[Double](numberOfParameters)
 
-    val derivs = for (l <- (0 until numberOfBins).par; k <- (0 until numberOfBins)) yield {
+    val derivs = for (l <- ParVector.range(0, numberOfBins); k <- (0 until numberOfBins)) yield {
 
       val derivsForPoints = for (point <- points) yield {
 
-        val transformedPoint = transform(point)
+        val transformedPoint = transformMemoized(point)
 
         if (movingImage.isDefinedAt(transformedPoint)) {
           val termRefSpline: Double = zeroOrderSpline(
@@ -185,8 +192,7 @@ case class MutualInformationMetric[D: NDSpace, A: Scalar](fixedImage: ScalarImag
 
             if (Math.abs(termTestSpline) > 1e-10) {
               val termTestDerivative: DenseVector[Double] = -movingImage.differentiate(transformedPoint).toBreezeVector
-              val termTransSpace: transformationSpace.JacobianImage =
-                transformationSpace.takeDerivativeWRTParameters(params)
+              val termTransSpace: JacobianField[D] = transform.derivativeWRTParameters
               termTransSpace(point).t * termTestDerivative * termRefSpline * termTestSpline
             } else {
               zeroVec
@@ -244,7 +250,7 @@ case class MutualInformationMetric[D: NDSpace, A: Scalar](fixedImage: ScalarImag
     val jointHistogram = computeJointHistogram(params, samplePoints)
     val marginalHistogramMoving = computeMarginalHistogramMovingImage(params, samplePoints)
 
-    val mivalues = for (k <- (0 until numberOfBins).par; l <- 0 until numberOfBins) yield {
+    val mivalues = for (k <- ParVector.range(0, numberOfBins); l <- 0 until numberOfBins) yield {
 
       if (marginalHistogramFixedImage(k) != 0 && marginalHistogramMoving(l) != 0 && jointHistogram(l, k) != 0) {
 
@@ -273,7 +279,7 @@ case class MutualInformationMetric[D: NDSpace, A: Scalar](fixedImage: ScalarImag
     val jointHistDeriv = computeJointHistogramDerivative(params, samplePoints)
     val marginalHistDerivMoving = computeMarginalHistogramDerivativeMovingImage(params, samplePoints)
 
-    val gradientValues = for (k <- (0 until numberOfBins).par; l <- 0 until numberOfBins) yield {
+    val gradientValues = for (k <- ParVector.range(0, numberOfBins); l <- 0 until numberOfBins) yield {
 
       if (marginalHistogramFixedImage(k) != 0 && marginalHistMoving(l) != 0) {
         (jointHistDeriv(l, k) * log(jointHist(l, k) / (marginalHistMoving(l) * marginalHistogramFixedImage(k)) + 1)
@@ -302,7 +308,7 @@ case class MutualInformationMetric[D: NDSpace, A: Scalar](fixedImage: ScalarImag
     val marginalHistDerivMoving = computeMarginalHistogramDerivativeMovingImage(params, samplePoints)
     val marginalHistogramRef = marginalHistogramFixedImage
 
-    val mivalues = for (k <- (0 until numberOfBins).par; l <- 0 until numberOfBins) yield {
+    val mivalues = for (k <- ParVector.range(0, numberOfBins); l <- 0 until numberOfBins) yield {
 
       if (marginalHistogramRef(k) != 0 && marginalHistMoving(l) != 0 && jointHist(l, k) != 0) {
 

@@ -1,11 +1,13 @@
 package scalismo.statisticalmodel.dataset
 
-import scalismo.geometry._3D
+import scalismo.common.{DiscreteDomain, DomainWarp}
+import scalismo.geometry.{_3D, EuclideanVector}
 import scalismo.mesh.{MeshMetrics, TriangleMesh}
-import scalismo.statisticalmodel.StatisticalMeshModel
+import scalismo.statisticalmodel.{PointDistributionModel, StatisticalMeshModel}
 import scalismo.utils.Random
 
 import scala.util.{Failure, Success, Try}
+import scala.collection.parallel.immutable.ParVector
 
 /**
  * Implements utility functions for evaluating the quality of a [[StatisticalMeshModel]]
@@ -32,16 +34,22 @@ object ModelMetrics {
    * These steps are then repeated nbSamples times and the average value is returned.
    *
    */
-  def specificity(pcaModel: StatisticalMeshModel, data: Iterable[TriangleMesh[_3D]], nbSamples: Int)(
-    implicit rng: Random
+  def specificity(pcaModel: PointDistributionModel[_3D, TriangleMesh],
+                  data: Iterable[TriangleMesh[_3D]],
+                  nbSamples: Int)(
+    implicit
+    rng: Random
   ): Double = {
 
-    (0 until nbSamples).par.map { _ =>
-      val sample = pcaModel.sample
-      data.map { m =>
-        MeshMetrics.avgDistance(m, sample)
-      }.min
-    }.sum * (1.0 / nbSamples)
+    ParVector
+      .range(0, nbSamples)
+      .map { _ =>
+        val sample = pcaModel.sample
+        data.map { m =>
+          MeshMetrics.avgDistance(m, sample)
+        }.min
+      }
+      .sum * (1.0 / nbSamples)
   }
 
   /**
@@ -57,11 +65,14 @@ object ModelMetrics {
    * To be able to perform the projection, it is important that the data collection is in correspondence with the model.
    * The returned value is a scala.util.Try containing the average over all test data in case of success, or an Exception otherwise
    */
-  def generalization(pcaModel: StatisticalMeshModel, dc: DataCollection): Try[Double] = {
+  def generalization[D](
+    pcaModel: PointDistributionModel[_3D, TriangleMesh],
+    dc: DataCollection[_3D, TriangleMesh, EuclideanVector[_3D]]
+  )(implicit warper: DomainWarp[_3D, TriangleMesh]): Try[Double] = {
 
-    if (pcaModel.referenceMesh == dc.reference) Success {
-      dc.dataItems.par.map { item =>
-        val mesh = dc.reference.transform(item.transformation)
+    if (pcaModel.reference == dc.reference) Success {
+      new ParVector(dc.dataItems.toVector).map { item =>
+        val mesh = warper.transformWithField(dc.reference, item)
         val projection = pcaModel.project(mesh)
         MeshMetrics.avgDistance(projection, mesh)
       }.sum / dc.size.toDouble

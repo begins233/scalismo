@@ -18,7 +18,8 @@ package scalismo.io
 import java.io.{BufferedReader, File, FileReader, IOException}
 
 import scalismo.color.{RGB, RGBA}
-import scalismo.common.{PointId, Scalar, UnstructuredPointsDomain}
+import scalismo.common.DiscreteField.{ScalarMeshField, ScalarVolumeMeshField}
+import scalismo.common.{PointId, Scalar, UnstructuredPoints}
 import scalismo.geometry._
 import scalismo.mesh.TriangleMesh._
 import scalismo.mesh._
@@ -654,7 +655,7 @@ object MeshIO {
         h5file.close()
       }
     } yield {
-      TriangleMesh3D(UnstructuredPointsDomain(NDArrayToPointSeq(vertArray).toIndexedSeq),
+      TriangleMesh3D(UnstructuredPoints(NDArrayToPointSeq(vertArray).toIndexedSeq),
                      TriangleList(NDArrayToCellSeq(cellArray)))
     }
 
@@ -677,9 +678,7 @@ object MeshIO {
   private def cellSeqToNDArray[T](cells: IndexedSeq[TriangleCell]): NDArray[Int] =
     NDArray(IndexedSeq(cells.size, 3), cells.flatten(cell => cell.pointIds.map(_.id)).toArray)
 
-  private def readLineMeshVTK[D: NDSpace: LineMesh.Create: UnstructuredPointsDomain.Create](
-    file: File
-  ): Try[LineMesh[D]] = {
+  private def readLineMeshVTK[D: NDSpace: LineMesh.Create: UnstructuredPoints.Create](file: File): Try[LineMesh[D]] = {
     val vtkReader = new vtkPolyDataReader()
     vtkReader.SetFileName(file.getAbsolutePath)
     vtkReader.Update()

@@ -24,9 +24,11 @@ import scalismo.geometry.{EuclideanVector, NDSpace, Point}
 import scalismo.kernels.{Kernel, MatrixValuedPDKernel}
 import scalismo.numerics.PivotedCholesky.RelativeTolerance
 import scalismo.numerics.{PivotedCholesky, Sampler}
-import scalismo.registration.RigidTransformation
+import scalismo.transformations.RigidTransformation
 import scalismo.statisticalmodel.LowRankGaussianProcess.{Eigenpair, KLBasis}
 import scalismo.utils.{Memoize, Random}
+
+import scala.language.higherKinds
 
 /**
  *
@@ -39,7 +41,8 @@ import scalismo.utils.{Memoize, Random}
  * @tparam Value The output type
  */
 class LowRankGaussianProcess[D: NDSpace, Value](mean: Field[D, Value], val klBasis: KLBasis[D, Value])(
-  implicit vectorizer: Vectorizer[Value]
+  implicit
+  vectorizer: Vectorizer[Value]
 ) extends GaussianProcess[D, Value](mean, LowRankGaussianProcess.covFromKLTBasis(klBasis)) {
 
   /**
@@ -77,12 +80,12 @@ class LowRankGaussianProcess[D: NDSpace, Value](mean: Field[D, Value], val klBas
   /**
    * A random sample evaluated at the given points
    */
-  override def sampleAtPoints[DDomain <: DiscreteDomain[D]](
-    domain: DDomain
+  override def sampleAtPoints[DDomain[DD] <: DiscreteDomain[DD]](
+    domain: DDomain[D]
   )(implicit rand: Random): DiscreteField[D, DDomain, Value] = {
     // TODO check that points are part of the domain
     val aSample = sample()
-    val values = domain.points.map(pt => aSample(pt))
+    val values = domain.pointSet.points.map(pt => aSample(pt))
     DiscreteField[D, DDomain, Value](domain, values.toIndexedSeq)
   }
 
@@ -177,10 +180,19 @@ class LowRankGaussianProcess[D: NDSpace, Value](mean: Field[D, Value], val klBas
     LowRankGaussianProcess.regression(this, trainingData)
   }
 
+  override def marginal(points: IndexedSeq[Point[D]])(
+    implicit domainCreator: UnstructuredPointsDomain.Create[D]
+  ): DiscreteLowRankGaussianProcess[D, UnstructuredPointsDomain, Value] = {
+    val domain = domainCreator.create(points)
+    discretize(domain)
+  }
+
   /**
    * Discretize the gaussian process on the given points.
    */
-  def discretize[DDomain <: DiscreteDomain[D]](domain: DDomain): DiscreteLowRankGaussianProcess[D, DDomain, Value] = {
+  override def discretize[DDomain[DD] <: DiscreteDomain[DD]](
+    domain: DDomain[D]
+  ): DiscreteLowRankGaussianProcess[D, DDomain, Value] = {
     DiscreteLowRankGaussianProcess[D, DDomain, Value](domain, this)
   }
 
@@ -228,7 +240,7 @@ object LowRankGaussianProcess {
   def approximateGPNystrom[D: NDSpace, Value](
     gp: GaussianProcess[D, Value],
     sampler: Sampler[D]
-  )(implicit vectorizer: Vectorizer[Value], rand: Random) = {
+  )(implicit vectorizer: Vectorizer[Value]) = {
     val kltBasis: KLBasis[D, Value] = Kernel.computeNystromApproximation[D, Value](gp.cov, sampler)
     new LowRankGaussianProcess[D, Value](gp.mean, kltBasis)
   }
@@ -268,15 +280,15 @@ object LowRankGaussianProcess {
    *
    * @return       A low rank approximation of the Gaussian process
    */
-  def approximateGPCholesky[D: NDSpace, DDomain <: DiscreteDomain[D], Value](
-    domain: DDomain,
+  def approximateGPCholesky[D: NDSpace, DDomain[D] <: DiscreteDomain[D], Value](
+    domain: DDomain[D],
     gp: GaussianProcess[D, Value],
     relativeTolerance: Double,
     interpolator: FieldInterpolator[D, DDomain, Value]
-  )(implicit vectorizer: Vectorizer[Value], rand: Random): LowRankGaussianProcess[D, Value] = {
+  )(implicit vectorizer: Vectorizer[Value]): LowRankGaussianProcess[D, Value] = {
 
     val (basis, scale) = PivotedCholesky.computeApproximateEig(kernel = gp.cov,
-                                                               xs = domain.points.toIndexedSeq,
+                                                               xs = domain.pointSet.points.toIndexedSeq,
                                                                stoppingCriterion = RelativeTolerance(relativeTolerance))
 
     // Assemble a discrete Gaussian process from the matrix given by the pivoted cholesky and use the interpolator
@@ -288,7 +300,7 @@ object LowRankGaussianProcess {
       DiscreteLowRankGaussianProcess.Eigenpair(scale(i), discreteEV)
     }
 
-    val mean = DiscreteField[D, DDomain, Value](domain, domain.points.toIndexedSeq.map(p => gp.mean(p)))
+    val mean = DiscreteField[D, DDomain, Value](domain, domain.pointSet.points.toIndexedSeq.map(p => gp.mean(p)))
 
     val dgp = DiscreteLowRankGaussianProcess[D, DDomain, Value](mean, klBasis)
 
@@ -416,7 +428,8 @@ object LowRankGaussianProcess {
    * vectors are transformed along the domain.
    */
   def transform[D: NDSpace](gp: LowRankGaussianProcess[D, EuclideanVector[D]], rigidTransform: RigidTransformation[D])(
-    implicit vectorizer: Vectorizer[EuclideanVector[D]]
+    implicit
+    vectorizer: Vectorizer[EuclideanVector[D]]
   ): LowRankGaussianProcess[D, EuclideanVector[D]] = {
     val invTransform = rigidTransform.inverse
 

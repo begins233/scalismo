@@ -19,7 +19,7 @@ import breeze.linalg.{DenseMatrix, DenseVector}
 import scalismo.common.RealSpace
 import scalismo.geometry._
 import scalismo.numerics.BSpline
-import scalismo.registration.Transformation
+import scalismo.transformations.Transformation
 import scalismo.utils.Memoize
 
 case class GaussianKernel[D](sigma: Double) extends PDKernel[D] {
@@ -31,6 +31,18 @@ case class GaussianKernel[D](sigma: Double) extends PDKernel[D] {
     val r = x - y
     scala.math.exp(-r.norm2 / sigma2)
   }
+}
+
+object GaussianKernel1D {
+  def apply(sigma: Double): GaussianKernel[_1D] = GaussianKernel[_1D](sigma)
+}
+
+object GaussianKernel2D {
+  def apply(sigma: Double): GaussianKernel[_2D] = GaussianKernel[_2D](sigma)
+}
+
+object GaussianKernel3D {
+  def apply(sigma: Double): GaussianKernel[_3D] = GaussianKernel[_3D](sigma)
 }
 
 case class SampleCovarianceKernel[D: NDSpace](ts: IndexedSeq[Transformation[D]], cacheSizeHint: Int = 100000)

@@ -22,17 +22,21 @@ import scalismo.statisticalmodel.MultivariateNormalDistribution
 
 import scala.collection.immutable
 
+import scala.language.higherKinds
+
 final case class ProfileId(id: Int) extends AnyVal
 
 case class Profile(pointId: PointId, distribution: MultivariateNormalDistribution)
 
-case class Profiles(private[scalismo] val data: immutable.IndexedSeq[Profile]) extends Traversable[Profile] {
+case class Profiles(private[scalismo] val data: IndexedSeq[Profile]) extends Iterable[Profile] {
   def apply(profileId: ProfileId): Profile = data(profileId.id)
   def ids: IndexedSeq[ProfileId] = data.indices.map(idx => ProfileId(idx))
 
   override def size = data.size
 
   override def foreach[U](f: (Profile) => U): Unit = data.foreach(f)
+
+  override def iterator: Iterator[Profile] = data.iterator
 }
 
 /**
@@ -41,23 +45,19 @@ case class Profiles(private[scalismo] val data: immutable.IndexedSeq[Profile]) e
  * An example instance of such a class is the set of profile points and associated features in an Active Shape Model.
  *
  */
-class DiscreteFeatureField[D: NDSpace, DDomain <: DiscreteDomain[D]](domain: DDomain,
-                                                                     _values: IndexedSeq[DenseVector[Double]])
+class DiscreteFeatureField[D: NDSpace, DDomain[D] <: DiscreteDomain[D]](domain: DDomain[D],
+                                                                        _values: IndexedSeq[DenseVector[Double]])
     extends DiscreteField[D, DDomain, DenseVector[Double]](domain, _values) {
 
   override def apply(id: PointId) = _values(id.id)
 
-  override def isDefinedAt(id: PointId) = id.id < domain.numberOfPoints
+  override def isDefinedAt(id: PointId) = id.id < domain.pointSet.numberOfPoints
 
   override def values = _values.toIterator
-
-  override def interpolateNearestNeighbor(): Field[D, DenseVector[Double]] = {
-    Field(RealSpace[D], (p: Point[D]) => apply(domain.findClosestPoint(p).id))
-  }
 
 }
 
 object DiscreteFeatureField {
-  def apply[D: NDSpace, DDomain <: DiscreteDomain[D]](domain: DDomain, values: IndexedSeq[DenseVector[Double]]) =
+  def apply[D: NDSpace, DDomain[D] <: DiscreteDomain[D]](domain: DDomain[D], values: IndexedSeq[DenseVector[Double]]) =
     new DiscreteFeatureField[D, DDomain](domain, values)
 }

@@ -15,7 +15,7 @@
  */
 package scalismo.image
 
-import scalismo.common.DiscreteField
+import scalismo.common.{DiscreteDomain, DiscreteField, Scalar, ScalarArray}
 import scalismo.geometry._
 
 /**
@@ -24,17 +24,42 @@ import scalismo.geometry._
  * @tparam D  The dimensionality of the image
  * @tparam A The type of the pixel (usually a scalar or a vector)
  */
-class DiscreteImage[D: NDSpace, A](domain: DiscreteImageDomain[D], values: IndexedSeq[A])
-    extends DiscreteField[D, DiscreteImageDomain[D], A](domain, values) {
+object DiscreteImage {
 
-  protected[this] def ndSpace: NDSpace[D] = NDSpace[D]
+  def apply[D, A](domain: DiscreteImageDomain[D], data: IndexedSeq[A]): DiscreteImage[D, A] =
+    new DiscreteField[D, DiscreteImageDomain, A](domain, data)
 
-  val dimensionality = ndSpace.dimensionality
-
-  def apply(idx: IntVector[D]): A = this(domain.pointId(idx))
-
-  def isDefinedAt(idx: IntVector[D]): Boolean = {
-    (0 until dimensionality).foldLeft(true)((res, d) => res && idx(d) >= 0 && idx(d) < domain.size(d))
+  def apply[D, A](domain: DiscreteImageDomain[D], values: Point[D] => A): DiscreteImage[D, A] = {
+    val valueSeq = domain.pointSet.points.map(values).toIndexedSeq
+    new DiscreteField(domain, valueSeq)
   }
+}
 
+object DiscreteImage1D {
+  def apply[A](domain: DiscreteImageDomain[_1D], data: IndexedSeq[A]): DiscreteImage[_1D, A] =
+    new DiscreteField[_1D, DiscreteImageDomain, A](domain, data)
+
+  def apply[A](domain: DiscreteImageDomain[_1D], values: Point[_1D] => A): DiscreteImage[_1D, A] = {
+    val valueSeq = domain.pointSet.points.map(values).toIndexedSeq
+    new DiscreteField(domain, valueSeq)
+  }
+}
+
+object DiscreteImage2D {
+  def apply[A](domain: DiscreteImageDomain[_2D], data: IndexedSeq[A]): DiscreteImage[_2D, A] =
+    new DiscreteField[_2D, DiscreteImageDomain, A](domain, data)
+
+  def apply[A](domain: DiscreteImageDomain[_2D], values: Point[_2D] => A): DiscreteImage[_2D, A] = {
+    val valueSeq = domain.pointSet.points.map(values).toIndexedSeq
+    new DiscreteField(domain, valueSeq)
+  }
+}
+object DiscreteImage3D {
+  def apply[A](domain: DiscreteImageDomain[_3D], data: IndexedSeq[A]): DiscreteImage[_3D, A] =
+    new DiscreteField[_3D, DiscreteImageDomain, A](domain, data)
+
+  def apply[A](domain: DiscreteImageDomain[_3D], values: Point[_3D] => A): DiscreteImage[_3D, A] = {
+    val valueSeq = domain.pointSet.points.map(values).toIndexedSeq
+    new DiscreteField(domain, valueSeq)
+  }
 }

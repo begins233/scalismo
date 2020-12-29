@@ -17,22 +17,25 @@
 package scalismo.registration
 
 import breeze.linalg.DenseVector
-import scalismo.common.{Domain, Scalar}
+import scalismo.common.{DifferentiableField, Domain, Field, Scalar}
 import scalismo.geometry.{NDSpace, Point}
-import scalismo.image.{DifferentiableScalarImage, ScalarImage}
 import scalismo.numerics._
 import scalismo.registration.RegistrationMetric.ValueAndDerivative
+import scalismo.transformations.TransformationSpace
+
+import scala.collection.parallel.immutable.ParVector
 
 /**
  * Image to image metric which applies a loss function to the pointwise pixel difference.
  * The total value of the metric is the mean of this pointwise loss. The points are determined by
  * the sampler.
  */
-abstract class MeanPointwiseLossMetric[D: NDSpace, A: Scalar](fixedImage: ScalarImage[D, A],
-                                                              movingImage: DifferentiableScalarImage[D, A],
-                                                              transformationSpace: TransformationSpace[D],
-                                                              sampler: Sampler[D])
-    extends ImageMetric[D, A] {
+abstract class MeanPointwiseLossMetric[D: NDSpace, A: Scalar](
+  fixedImage: Field[D, A],
+  movingImage: DifferentiableField[D, A],
+  transformationSpace: TransformationSpace[D],
+  sampler: Sampler[D]
+) extends ImageMetric[D, A] {
 
   override val ndSpace: NDSpace[D] = implicitly[NDSpace[D]]
 
@@ -68,41 +71,44 @@ abstract class MeanPointwiseLossMetric[D: NDSpace, A: Scalar](fixedImage: Scalar
 
   private def computeValue(parameters: DenseVector[Double], sampler: Sampler[D]) = {
 
-    val transform = transformationSpace.transformForParameters(parameters)
+    val transform = transformationSpace.transformationForParameters(parameters)
 
     val warpedImage = movingImage.compose(transform)
-
     val metricValue = (fixedImage - warpedImage).andThen(lossFunction _).liftValues
 
     // we compute the mean using a monte carlo integration
     val samples = sampler.sample()
-    samples.par.map { case (pt, _) => metricValue(pt).getOrElse(0.0) }.sum / samples.size
+    new ParVector(samples.toVector).map { case (pt, _) => metricValue(pt).getOrElse(0.0) }.sum / samples.size
   }
 
   private def computeDerivative(parameters: DenseVector[Double], sampler: Sampler[D]): DenseVector[Double] = {
 
-    val transform = transformationSpace.transformForParameters(parameters)
+    val transform = transformationSpace.transformationForParameters(parameters)
 
     val movingImageGradient = movingImage.differentiate
     val warpedImage = movingImage.compose(transform)
 
     val dDMovingImage = (warpedImage - fixedImage).andThen(lossFunctionDerivative _)
 
-    val dTransformSpaceDAlpha = transformationSpace.takeDerivativeWRTParameters(parameters)
+    val dMovingImageDomain = Domain.intersection(warpedImage.domain, fixedImage.domain)
 
     val fullMetricGradient = (x: Point[D]) => {
-      val domain = Domain.intersection(fixedImage.domain, dDMovingImage.domain)
+      val domain = Domain.intersection(fixedImage.domain, dMovingImageDomain)
       if (domain.isDefinedAt(x))
         Some(
-          dTransformSpaceDAlpha(x).t * (movingImageGradient(transform(x)) * dDMovingImage(x).toDouble).toBreezeVector
+          transform
+            .derivativeWRTParameters(x)
+            .t * (movingImageGradient(transform(x)) * dDMovingImage(x).toDouble).toBreezeVector
         )
       else None
     }
 
     // we compute the mean using a monte carlo integration
     val samples = sampler.sample
-    val zeroVector = DenseVector.zeros[Double](transformationSpace.parametersDimensionality)
-    val gradientValues = samples.par.map { case (pt, _) => fullMetricGradient(pt).getOrElse(zeroVector) }
+    val zeroVector = DenseVector.zeros[Double](transformationSpace.numberOfParameters)
+    val gradientValues = new ParVector(samples.toVector).map {
+      case (pt, _) => fullMetricGradient(pt).getOrElse(zeroVector)
+    }
 
     gradientValues.foldLeft(zeroVector)((acc, g) => acc + g) * (1.0 / samples.size)
 

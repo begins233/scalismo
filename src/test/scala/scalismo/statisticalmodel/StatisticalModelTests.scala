@@ -22,10 +22,10 @@ import breeze.linalg.DenseVector
 import breeze.stats.distributions.Gaussian
 import scalismo.ScalismoTestSuite
 import scalismo.geometry._
-import scalismo.io.StatismoIO
+import scalismo.io.{StatismoIO, StatisticalModelIO}
 import scalismo.mesh.MeshMetrics
 import scalismo.numerics.PivotedCholesky.NumberOfEigenfunctions
-import scalismo.registration.{RigidTransformation, RigidTransformationSpace}
+import scalismo.transformations.{RigidTransformation, Rotation3D, Translation3D, TranslationAfterRotation3D}
 import scalismo.statisticalmodel.dataset.DataCollection
 import scalismo.utils.Random
 
@@ -58,13 +58,13 @@ class StatisticalModelTests extends ScalismoTestSuite {
     it("can be calculated with a small amount of samples using PCA") {
 
       val path = getClass.getResource("/facemodel.h5").getPath
-      val model = StatismoIO.readStatismoMeshModel(new File(URLDecoder.decode(path, "UTF-8"))).get
+      val model = StatisticalModelIO.readStatisticalMeshModel(new File(URLDecoder.decode(path, "UTF-8"))).get
 
       val ref = model.referenceMesh
 
       val data = (1 to 3).map(f => model.sample())
 
-      val dc = DataCollection.fromMeshSequence(referenceMesh = ref, registeredMeshes = data)._1.get
+      val dc = DataCollection.fromTriangleMesh3DSequence(ref, data)
       val dcGpa = DataCollection.gpa(dc)
 
       val pca1 = StatisticalMeshModel.createUsingPCA(dcGpa, NumberOfEigenfunctions.apply(data.length - 1))
@@ -76,10 +76,11 @@ class StatisticalModelTests extends ScalismoTestSuite {
 
     it("can be transformed forth and back and yield the same deformations") {
       val path = getClass.getResource("/facemodel.h5").getPath
-      val model = StatismoIO.readStatismoMeshModel(new File(URLDecoder.decode(path, "UTF-8"))).get
+      val model = StatisticalModelIO.readStatisticalMeshModel(new File(URLDecoder.decode(path, "UTF-8"))).get
 
-      val parameterVector = DenseVector[Double](1.5, 1.0, 3.5, Math.PI, -Math.PI / 2.0, -Math.PI)
-      val rigidTransform = RigidTransformationSpace[_3D]().transformForParameters(parameterVector)
+      val translation = Translation3D(EuclideanVector3D(1.5, 1.0, 3.5))
+      val rotation = Rotation3D(Math.PI, -Math.PI / 2.0, -Math.PI, Point3D(0, 0, 0))
+      val rigidTransform = TranslationAfterRotation3D(translation, rotation)
       val inverseTransform = rigidTransform.inverse.asInstanceOf[RigidTransformation[_3D]]
       val transformedModel = model.transform(rigidTransform)
       val newModel = transformedModel.transform(inverseTransform)
@@ -89,7 +90,7 @@ class StatisticalModelTests extends ScalismoTestSuite {
     it("can change the mean shape and still yield the same shape space") {
 
       val path = getClass.getResource("/facemodel.h5").getPath
-      val model = StatismoIO.readStatismoMeshModel(new File(URLDecoder.decode(path, "UTF-8"))).get
+      val model = StatisticalModelIO.readStatisticalMeshModel(new File(URLDecoder.decode(path, "UTF-8"))).get
 
       val newMesh = model.sample
 
@@ -105,7 +106,7 @@ class StatisticalModelTests extends ScalismoTestSuite {
 
     it("has the right rank when reduced") {
       val path = getClass.getResource("/facemodel.h5").getPath
-      val model = StatismoIO.readStatismoMeshModel(new File(URLDecoder.decode(path, "UTF-8"))).get
+      val model = StatisticalModelIO.readStatisticalMeshModel(new File(URLDecoder.decode(path, "UTF-8"))).get
 
       val newRank = model.rank / 2
       val truncatedModel = model.truncate(newRank)
@@ -115,7 +116,7 @@ class StatisticalModelTests extends ScalismoTestSuite {
 
     it("yield equivalent samples with reduced number of points when decimated") {
       val path = getClass.getResource("/facemodel.h5").getPath
-      val model = StatismoIO.readStatismoMeshModel(new File(URLDecoder.decode(path, "UTF-8"))).get
+      val model = StatisticalModelIO.readStatisticalMeshModel(new File(URLDecoder.decode(path, "UTF-8"))).get
       val targetNumberOfPoints = model.referenceMesh.pointSet.numberOfPoints / 2
       val decimatedModel = model.decimate(targetNumberOfPoints)
 

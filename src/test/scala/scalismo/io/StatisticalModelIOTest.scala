@@ -19,11 +19,10 @@ import java.io.File
 import java.net.URLDecoder
 
 import scalismo.ScalismoTestSuite
-import scalismo.common.NearestNeighborInterpolator
+import scalismo.common.interpolation.NearestNeighborInterpolator
 import scalismo.geometry._
-import scalismo.image.DiscreteImageDomain
+import scalismo.image.{DiscreteImageDomain, DiscreteImageDomain2D, DiscreteImageDomain3D}
 import scalismo.kernels.{DiagonalKernel, GaussianKernel}
-import scalismo.statisticalmodel.experimental.StatisticalVolumeMeshModel
 import scalismo.statisticalmodel.{GaussianProcess, LowRankGaussianProcess, StatisticalMeshModel}
 
 class StatisticalModelIOTest extends ScalismoTestSuite {
@@ -44,9 +43,9 @@ class StatisticalModelIOTest extends ScalismoTestSuite {
       dummyFile.deleteOnExit()
 
       val t = for {
-        model <- StatismoIO.readStatismoMeshModel(statismoFile)
-        _ <- StatismoIO.writeStatismoMeshModel(model, dummyFile)
-        readModel <- StatismoIO.readStatismoMeshModel(dummyFile)
+        model <- StatisticalModelIO.readStatisticalMeshModel(statismoFile)
+        _ <- StatisticalModelIO.writeStatisticalMeshModel(model, dummyFile)
+        readModel <- StatisticalModelIO.readStatisticalMeshModel(dummyFile)
       } yield {
         assertModelAlmostEqual(model, readModel)
       }
@@ -60,9 +59,9 @@ class StatisticalModelIOTest extends ScalismoTestSuite {
       dummyFile.deleteOnExit()
 
       val t = for {
-        model <- StatismoIO.readStatismoMeshModel(statismoFile)
-        _ <- StatismoIO.writeStatismoMeshModel(model, dummyFile, "/someLocation")
-        readModel <- StatismoIO.readStatismoMeshModel(dummyFile, "/someLocation")
+        model <- StatisticalModelIO.readStatisticalMeshModel(statismoFile)
+        _ <- StatisticalModelIO.writeStatisticalMeshModel(model, dummyFile, "/someLocation")
+        readModel <- StatisticalModelIO.readStatisticalMeshModel(dummyFile, "/someLocation")
       } yield {
         assertModelAlmostEqual(model, readModel)
       }
@@ -70,19 +69,15 @@ class StatisticalModelIOTest extends ScalismoTestSuite {
 
     }
 
-    it("can be written in version 0.81 and read again") {
-      import StatismoIO.StatismoVersion.v081
-
+    it("model in version 0.81 can be read") {
       val statismoFile = new File(URLDecoder.decode(getClass.getResource("/facemodel.h5").getPath, "UTF-8"))
-      val dummyFile = File.createTempFile("dummy", "h5")
-      dummyFile.deleteOnExit()
+      val statismoOldFile = new File(URLDecoder.decode(getClass.getResource("/facemodel_v081.h5").getPath, "UTF-8"))
 
       val t = for {
-        model <- StatismoIO.readStatismoMeshModel(statismoFile)
-        _ <- StatismoIO.writeStatismoMeshModel(model, dummyFile, statismoVersion = v081)
-        readModel <- StatismoIO.readStatismoMeshModel(dummyFile)
+        model <- StatisticalModelIO.readStatisticalMeshModel(statismoFile)
+        modelOld <- StatisticalModelIO.readStatisticalMeshModel(statismoOldFile)
       } yield {
-        assertModelAlmostEqual(model, readModel)
+        assertModelAlmostEqual(model, modelOld)
       }
       t.get
 
@@ -103,9 +98,9 @@ class StatisticalModelIOTest extends ScalismoTestSuite {
     it("can be created, saved and reread in 3D") {
       val gk = DiagonalKernel(GaussianKernel[_3D](10.0), 3)
       val gp = GaussianProcess[_3D, EuclideanVector[_3D]](gk)
-      val domain = DiscreteImageDomain(origin = Point3D(1.0, 3.1, 7.5),
-                                       spacing = EuclideanVector3D(0.8, 0.7, 0.6),
-                                       size = IntVector3D(10, 12, 9))
+      val domain = DiscreteImageDomain3D(origin = Point3D(1.0, 3.1, 7.5),
+                                         spacing = EuclideanVector3D(0.8, 0.7, 0.6),
+                                         size = IntVector3D(10, 12, 9))
 
       val lowrankGp = LowRankGaussianProcess.approximateGPCholesky(domain, gp, 0.1, NearestNeighborInterpolator())
 
@@ -131,9 +126,9 @@ class StatisticalModelIOTest extends ScalismoTestSuite {
     it("can be created, saved and reread in 2D") {
       val gk = DiagonalKernel(GaussianKernel[_2D](10.0), 2)
       val gp = GaussianProcess[_2D, EuclideanVector[_2D]](gk)
-      val domain = DiscreteImageDomain(origin = Point2D(1.0, 3.1),
-                                       spacing = EuclideanVector2D(0.8, 0.7),
-                                       size = IntVector2D(10, 12))
+      val domain = DiscreteImageDomain2D(origin = Point2D(1.0, 3.1),
+                                         spacing = EuclideanVector2D(0.8, 0.7),
+                                         size = IntVector2D(10, 12))
 
       val lowrankGp = LowRankGaussianProcess.approximateGPCholesky(domain, gp, 0.1, NearestNeighborInterpolator())
 

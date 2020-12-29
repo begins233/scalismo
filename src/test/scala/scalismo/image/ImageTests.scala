@@ -17,12 +17,12 @@ package scalismo.image
 
 import breeze.linalg.DenseVector
 import scalismo.ScalismoTestSuite
-import scalismo.common.{BoxDomain, PointId, Scalar, ScalarArray}
+import scalismo.common.{BoxDomain, DifferentiableField, Field, PointId, Scalar, ScalarArray}
 import scalismo.geometry.IntVector.implicits._
 import scalismo.geometry.Point.implicits._
 import scalismo.geometry.EuclideanVector.implicits._
 import scalismo.geometry._
-import scalismo.registration.TranslationSpace
+import scalismo.transformations.{Translation1D, Translation2D}
 
 import scala.language.implicitConversions
 import scala.reflect.ClassTag
@@ -33,23 +33,23 @@ class ImageTests extends ScalismoTestSuite {
 
   describe("A discrete 1D image") {
     it("returns the same points for a 1d index and a coordinate index") {
-      val domain = DiscreteImageDomain[_1D](0.0, 1.0, 5)
-      val discreteImage = DiscreteScalarImage(domain, Seq(3.0, 2.0, 1.5, 1, 0))
+      val domain = DiscreteImageDomain1D(0.0, 1.0, 5)
+      val discreteImage = DiscreteImage(domain, IndexedSeq(3.0, 2.0, 1.5, 1, 0))
 
       for (i <- 0 until domain.size(0)) {
-        assert(discreteImage(i) == discreteImage(i))
+        assert(discreteImage(IntVector(i)) == discreteImage(IntVector(i)))
       }
     }
   }
 
   describe("A discrete 2D image") {
     it("returns the same points for a 1d index and a (2d) coordinate index") {
-      val domain = DiscreteImageDomain[_2D]((0.0, 0.0), (1.0, 2.0), (3, 2))
-      val discreteImage = DiscreteScalarImage(domain, Seq(3.0, 2.0, 1.5, 1.0, 0.0, 4.0))
+      val domain = DiscreteImageDomain2D((0.0, 0.0), (1.0, 2.0), (3, 2))
+      val discreteImage = DiscreteImage(domain, IndexedSeq(3.0, 2.0, 1.5, 1.0, 0.0, 4.0))
 
       for (y <- 0 until domain.size(1);
            x <- 0 until domain.size(0)) {
-        assert(discreteImage(PointId(y * domain.size(0) + x)) === discreteImage((x, y)))
+        assert(discreteImage(PointId(y * domain.size(0) + x)) === discreteImage(IntVector(x, y)))
       }
     }
   }
@@ -57,10 +57,10 @@ class ImageTests extends ScalismoTestSuite {
   describe("A continuous 1D image") {
     it("yields the right values after composing with a translation") {
 
-      val image = DifferentiableScalarImage(BoxDomain(-4.0, 6.0),
-                                            (x: Point[_1D]) => Math.sin(x(0).toDouble).toFloat,
-                                            (x: Point[_1D]) => EuclideanVector(Math.cos(x(0).toDouble).toFloat))
-      val translationTransform = TranslationSpace[_1D].transformForParameters(DenseVector(1.0))
+      val image = DifferentiableField(BoxDomain(-4.0, 6.0),
+                                      (x: Point[_1D]) => Math.sin(x(0).toDouble).toFloat,
+                                      (x: Point[_1D]) => EuclideanVector(Math.cos(x(0).toDouble).toFloat))
+      val translationTransform = Translation1D(EuclideanVector1D(1.0))
       val composedImage = image.compose(translationTransform)
       assert(composedImage.isDefinedAt(-4.0) === true)
       assert(composedImage.isDefinedAt(5.0) === true)
@@ -71,11 +71,11 @@ class ImageTests extends ScalismoTestSuite {
 
     it("yields the right values after warping with a translation") {
 
-      val image = DifferentiableScalarImage(BoxDomain(-4.0, 6.0),
-                                            (x: Point[_1D]) => Math.sin(x(0).toDouble).toFloat,
-                                            (x: Point[_1D]) => EuclideanVector(Math.cos(x(0).toDouble).toFloat))
+      val image = DifferentiableField(BoxDomain(-4.0, 6.0),
+                                      (x: Point[_1D]) => Math.sin(x(0).toDouble).toFloat,
+                                      (x: Point[_1D]) => EuclideanVector(Math.cos(x(0).toDouble).toFloat))
 
-      val translationTransform = TranslationSpace[_1D].transformForParameters(DenseVector(-1.0))
+      val translationTransform = Translation1D(EuclideanVector1D(-1.0))
 
       val warpedImage = image.compose(translationTransform)
 
@@ -94,9 +94,9 @@ class ImageTests extends ScalismoTestSuite {
   describe("A continuous 2D image") {
     it("can be translated to a new place") {
 
-      val cImg = ScalarImage(BoxDomain((0.0, 0.0), (1.0, 1.0)), (_: Point[_2D]) => 1f)
+      val cImg = Field(BoxDomain((0.0, 0.0), (1.0, 1.0)), (_: Point[_2D]) => 1f)
 
-      def t = TranslationSpace[_2D].transformForParameters(DenseVector(2.0, 2.0))
+      def t = Translation2D(EuclideanVector2D(2.0, 2.0))
       val warpedImg = cImg.compose(t)
 
       warpedImg.isDefinedAt((-0.5, -0.5)) should equal(false)

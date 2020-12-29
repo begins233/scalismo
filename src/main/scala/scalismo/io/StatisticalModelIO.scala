@@ -17,14 +17,232 @@ package scalismo.io
 
 import java.io._
 
-import scalismo.geometry.{_2D, _3D, EuclideanVector}
+import scalismo.common.UnstructuredPointsDomain
+import scalismo.geometry.{_1D, _2D, _3D, EuclideanVector}
 import scalismo.image.DiscreteImageDomain
-import scalismo.statisticalmodel.experimental.StatisticalVolumeMeshModel
-import scalismo.statisticalmodel.{DiscreteLowRankGaussianProcess, StatisticalMeshModel}
+import scalismo.mesh.{LineMesh, TetrahedralMesh, TriangleMesh}
+import scalismo.statisticalmodel.{DiscreteLowRankGaussianProcess, PointDistributionModel, StatisticalMeshModel}
 
 import scala.util.Try
 
 object StatisticalModelIO {
+
+  /**
+   * Reads and write of point distribution models with different domain types.
+   * The model file type is determined based on the extension.
+   * Currently only the Scalismo format (.h5) is supported.
+   */
+  /**
+   * Reads a PDM with TriangleMesh[_2D] as the domain
+   * @param file The statismo file
+   * @param modelPath in the hdf5 directory
+   * @return A PointDistributionModel or the Failure
+   */
+  def readStatisticalTriangleMeshModel2D(file: File,
+                                         modelPath: String = "/"): Try[PointDistributionModel[_2D, TriangleMesh]] = {
+    StatismoIO.readStatismoPDM[_2D, TriangleMesh](file, modelPath)
+  }
+
+  /**
+   * Writes a PDM with TriangleMesh[_2D] as the domain
+   * @param file The statismo file
+   * @param modelPath in the hdf5 directory
+   * @return A PointDistributionModel or the Failure
+   */
+  def writeStatisticalTriangleMeshModel2D(model: PointDistributionModel[_2D, TriangleMesh],
+                                          file: File,
+                                          modelPath: String = "/"): Try[Unit] = {
+    StatismoIO.writeStatismoPDM[_2D, TriangleMesh](model, file, modelPath)
+  }
+
+  /**
+   * Reads a PDM with TriangleMesh[_3D] as the domain
+   * @param file The statismo file
+   * @param modelPath in the hdf5 directory
+   * @return A PointDistributionModel or the Failure
+   */
+  def readStatisticalTriangleMeshModel3D(file: File,
+                                         modelPath: String = "/"): Try[PointDistributionModel[_3D, TriangleMesh]] = {
+    StatismoIO.readStatismoPDM[_3D, TriangleMesh](file, modelPath)
+  }
+
+  /**
+   * Writes a PDM with TriangleMesh[_3D] as the domain
+   * @param file The statismo file
+   * @param modelPath in the hdf5 directory
+   * @return A PointDistributionModel or the Failure
+   */
+  def writeStatisticalTriangleMeshModel3D(model: PointDistributionModel[_3D, TriangleMesh],
+                                          file: File,
+                                          modelPath: String = "/"): Try[Unit] = {
+    StatismoIO.writeStatismoPDM[_3D, TriangleMesh](model, file, modelPath)
+  }
+
+  /**
+   * Reads a PDM with LineMesh[_2D] as the domain
+   * @param file The statismo file
+   * @param modelPath in the hdf5 directory
+   * @return A PointDistributionModel or the Failure
+   */
+  def readStatisticalLineMeshModel2D(file: File,
+                                     modelPath: String = "/"): Try[PointDistributionModel[_2D, LineMesh]] = {
+    StatismoIO.readStatismoPDM[_2D, LineMesh](file, modelPath)
+  }
+
+  /**
+   * Writes a PDM with LineMesh[_2D] as the domain
+   * @param file The statismo file
+   * @param modelPath in the hdf5 directory
+   * @return A PointDistributionModel or the Failure
+   */
+  def writeStatisticalLineMeshModel2D(model: PointDistributionModel[_2D, LineMesh],
+                                      file: File,
+                                      modelPath: String = "/"): Try[Unit] = {
+    StatismoIO.writeStatismoPDM[_2D, LineMesh](model, file, modelPath)
+  }
+
+  /**
+   * Reads a PDM with TriangleMesh[_3D] as the domain
+   * @param file The statismo file
+   * @param modelPath in the hdf5 directory
+   * @return A PointDistributionModel or the Failure
+   */
+  def readStatisticalLineMeshModel3D(file: File,
+                                     modelPath: String = "/"): Try[PointDistributionModel[_3D, LineMesh]] = {
+    StatismoIO.readStatismoPDM[_3D, LineMesh](file, modelPath)
+  }
+
+  /**
+   * Writes a PDM with TriangleMesh[_3D] as the domain
+   * @param file The statismo file
+   * @param modelPath in the hdf5 directory
+   * @return A PointDistributionModel or the Failure
+   */
+  def writeStatisticalLineMeshModel3D(model: PointDistributionModel[_3D, LineMesh],
+                                      file: File,
+                                      modelPath: String = "/"): Try[Unit] = {
+    StatismoIO.writeStatismoPDM[_3D, LineMesh](model, file, modelPath)
+  }
+
+  /**
+   * Reads a PDM with TetrahedralMesh[_3D] as the domain
+   * @param file The statismo file
+   * @param modelPath in the hdf5 directory
+   * @return A PointDistributionModel or the Failure
+   */
+  def readStatisticalTetrahedralMeshModel3D(
+    file: File,
+    modelPath: String = "/"
+  ): Try[PointDistributionModel[_3D, TetrahedralMesh]] = {
+    StatismoIO.readStatismoPDM[_3D, TetrahedralMesh](file, modelPath)
+  }
+
+  /**
+   * Writes a PDM with TetrahedralMesh[_3D] as the domain
+   * @param file The statismo file
+   * @param modelPath in the hdf5 directory
+   * @return A PointDistributionModel or the Failure
+   */
+  def writeStatisticalTetrahedralMeshModel3D(model: PointDistributionModel[_3D, TetrahedralMesh],
+                                             file: File,
+                                             modelPath: String = "/"): Try[Unit] = {
+    StatismoIO.writeStatismoPDM[_3D, TetrahedralMesh](model, file, modelPath)
+  }
+
+  /**
+   * Reads a PDM with UnstructuredPointsDomain[_3D] as the domain
+   * @param file The statismo file
+   * @param modelPath in the hdf5 directory
+   * @return A PointDistributionModel or the Failure
+   */
+  def readStatisticalPointModel3D(
+    file: File,
+    modelPath: String = "/"
+  ): Try[PointDistributionModel[_3D, UnstructuredPointsDomain]] = {
+    StatismoIO.readStatismoPDM[_3D, UnstructuredPointsDomain](file, modelPath)
+  }
+
+  /**
+   * Writes a PDM with UnstructuredPointsDomain[_3D] as the domain
+   * @param file The statismo file
+   * @param modelPath in the hdf5 directory
+   * @return A PointDistributionModel or the Failure
+   */
+  def writeStatisticalPointModel3D(model: PointDistributionModel[_3D, UnstructuredPointsDomain],
+                                   file: File,
+                                   modelPath: String = "/"): Try[Unit] = {
+    StatismoIO.writeStatismoPDM[_3D, UnstructuredPointsDomain](model, file, modelPath)
+  }
+
+  /**
+   * Reads a PDM with UnstructuredPointsDomain[_2D] as the domain
+   * @param file The statismo file
+   * @param modelPath in the hdf5 directory
+   * @return A PointDistributionModel or the Failure
+   */
+  def readStatisticalPointModel2D(
+    file: File,
+    modelPath: String = "/"
+  ): Try[PointDistributionModel[_2D, UnstructuredPointsDomain]] = {
+    StatismoIO.readStatismoPDM[_2D, UnstructuredPointsDomain](file, modelPath)
+  }
+
+  /**
+   * Writes a PDM with UnstructuredPointsDomain[_2D] as the domain
+   * @param file The statismo file
+   * @param modelPath in the hdf5 directory
+   * @return A PointDistributionModel or the Failure
+   */
+  def writeStatisticalPointModel2D(model: PointDistributionModel[_2D, UnstructuredPointsDomain],
+                                   file: File,
+                                   modelPath: String = "/"): Try[Unit] = {
+    StatismoIO.writeStatismoPDM[_2D, UnstructuredPointsDomain](model, file, modelPath)
+  }
+
+  /**
+   * Reads a PDM with UnstructuredPointsDomain[_1D] as the domain
+   * @param file The statismo file
+   * @param modelPath in the hdf5 directory
+   * @return A PointDistributionModel or the Failure
+   */
+  def readStatisticalPointModel1D(
+    file: File,
+    modelPath: String = "/"
+  ): Try[PointDistributionModel[_1D, UnstructuredPointsDomain]] = {
+    StatismoIO.readStatismoPDM[_1D, UnstructuredPointsDomain](file, modelPath)
+  }
+
+  /**
+   * Writes a PDM with UnstructuredPointsDomain[_1D] as the domain
+   * @param file The statismo file
+   * @param modelPath in the hdf5 directory
+   * @return A PointDistributionModel or the Failure
+   */
+  def writeStatisticalPointModel1D(model: PointDistributionModel[_1D, UnstructuredPointsDomain],
+                                   file: File,
+                                   modelPath: String = "/"): Try[Unit] = {
+    StatismoIO.writeStatismoPDM[_1D, UnstructuredPointsDomain](model, file, modelPath)
+  }
+
+  /**
+   * Conversion between old format only supporting TriangleMesh PDMs and the new general PDM format
+   * @param model statisticalMeshModel
+   * @return PointDistributionModel with a TriangleMesh[_3D] as the domain
+   */
+  private def modelConverterToPointDistribution(
+    model: StatisticalMeshModel
+  ): PointDistributionModel[_3D, TriangleMesh] = {
+    PointDistributionModel(model.gp)
+  }
+
+  /**
+   * Conversion between new general PDM format and the old format only supporting TriangleMesh PDMs
+   * @param model PointDistributionModel with a TriangleMesh[_3D] as the domain
+   * @return statisticalMeshModel
+   */
+  private def modelConverterToMeshModel(model: PointDistributionModel[_3D, TriangleMesh]): StatisticalMeshModel = {
+    StatisticalMeshModel(model.reference, model.gp)
+  }
 
   /**
    * Reads a statistical mesh model. The file type is determined
@@ -34,9 +252,11 @@ object StatisticalModelIO {
    * @param file The statismo file
    * @return A StatisticalMeshModel or the Failure
    */
-  def readStatisticalMeshModel(file: File): Try[StatisticalMeshModel] = {
-    // currently, we support only the statismo format
-    StatismoIO.readStatismoMeshModel(file, "/")
+  def readStatisticalMeshModel(file: File, modelPath: String = "/"): Try[StatisticalMeshModel] = {
+    val pModel = readStatisticalTriangleMeshModel3D(file, modelPath)
+    for {
+      model <- pModel
+    } yield modelConverterToMeshModel(model)
   }
 
   /**
@@ -48,35 +268,9 @@ object StatisticalModelIO {
    * @param file  The file to which the model is written
    * @return In case of Failure, the Failure is returned.
    */
-  def writeStatisticalMeshModel(model: StatisticalMeshModel, file: File): Try[Unit] = {
-    // currently, we support only the statismo format
-    StatismoIO.writeStatismoMeshModel(model, file, "/")
-  }
-
-  /**
-   * Reads a statistical mesh volume model. The file type is determined
-   * based on the extension. Currently on the Scalismo format (.h5)
-   * is supported.
-   *
-   * @param file The statismo file
-   * @return A StatisticalVolMeshModel or the Failure
-   */
-  def readStatisticalVolumeMeshModel(file: File): Try[StatisticalVolumeMeshModel] = {
-    // currently, we support only the statismo format
-    StatismoIO.readStatismoVolumeMeshModel(file, "/")
-  }
-
-  /**
-   * Write a statistical mesh volume model.
-   * Currently on the Scalismo format (.h5) is supported.
-   *
-   * @param model The volume mesh model
-   * @param file The statismo file
-   * @return A StatisticalMeshVolumeModel or the Failure
-   */
-  def writeStatisticalVolumeMeshModel(model: StatisticalVolumeMeshModel, file: File): Try[Unit] = {
-    // currently, we support only the statismo format
-    StatismoIO.writeStatismoVolumeMeshModel(model, file, "/")
+  def writeStatisticalMeshModel(model: StatisticalMeshModel, file: File, modelPath: String = "/"): Try[Unit] = {
+    val pModel = modelConverterToPointDistribution(model)
+    writeStatisticalTriangleMeshModel3D(pModel, file, modelPath)
   }
 
   /**
@@ -86,7 +280,7 @@ object StatisticalModelIO {
    */
   def readDeformationModel2D(
     file: java.io.File
-  ): Try[DiscreteLowRankGaussianProcess[_2D, DiscreteImageDomain[_2D], EuclideanVector[_2D]]] = {
+  ): Try[DiscreteLowRankGaussianProcess[_2D, DiscreteImageDomain, EuclideanVector[_2D]]] = {
     StatismoIO.readStatismoImageModel[_2D, EuclideanVector[_2D]](file, "/")
   }
 
@@ -97,7 +291,7 @@ object StatisticalModelIO {
    */
   def readDeformationModel3D(
     file: java.io.File
-  ): Try[DiscreteLowRankGaussianProcess[_3D, DiscreteImageDomain[_3D], EuclideanVector[_3D]]] = {
+  ): Try[DiscreteLowRankGaussianProcess[_3D, DiscreteImageDomain, EuclideanVector[_3D]]] = {
     StatismoIO.readStatismoImageModel[_3D, EuclideanVector[_3D]](file, "/")
   }
 
@@ -108,7 +302,7 @@ object StatisticalModelIO {
    * @param file the file to which the model is written
    * @return Success if model could be read, Failure otherwise
    */
-  def writeDeformationModel2D(gp: DiscreteLowRankGaussianProcess[_2D, DiscreteImageDomain[_2D], EuclideanVector[_2D]],
+  def writeDeformationModel2D(gp: DiscreteLowRankGaussianProcess[_2D, DiscreteImageDomain, EuclideanVector[_2D]],
                               file: File): Try[Unit] = {
     StatismoIO.writeStatismoImageModel[_2D, EuclideanVector[_2D]](gp, file, "/")
   }
@@ -120,7 +314,7 @@ object StatisticalModelIO {
    * @param file the file to which the model is written
    * @return Success if model could be read, Failure otherwise
    */
-  def writeDeformationModel3D(gp: DiscreteLowRankGaussianProcess[_3D, DiscreteImageDomain[_3D], EuclideanVector[_3D]],
+  def writeDeformationModel3D(gp: DiscreteLowRankGaussianProcess[_3D, DiscreteImageDomain, EuclideanVector[_3D]],
                               file: File): Try[Unit] = {
     StatismoIO.writeStatismoImageModel[_3D, EuclideanVector[_3D]](gp, file, "/")
   }
